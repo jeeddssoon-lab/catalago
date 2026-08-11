@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Loja Virtual - Catálogo</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; background-color: #fef5ee; margin: 0; padding: 0; color: #333; }
+        .header { background: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 24px; font-weight: 700; color: #ff6b81; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-links a { text-decoration: none; color: #555; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .nav-links a:hover { color: #ff6b81; }
+        .header-icons { display: flex; align-items: center; gap: 15px; font-size: 22px; cursor: pointer; color: #333;}
+        .carrinho-icon { position: relative; display: flex; align-items: center; justify-content: center; }
+        .badge-sacola { position: absolute; top: -5px; right: -8px; background: #ff6b81; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
+        .secao-generos { max-width: 650px; margin: 10px auto 20px auto; display: flex; height: 60px; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+        .item-genero { flex: 1; position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #e9ecef; }
+        .item-genero img { width: 100%; height: 100%; object-fit: cover; transition: 0.4s; }
+        .item-genero:hover img { transform: scale(1.05); }
+        .texto-genero { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255, 255, 255, 0.85); color: #7b5bba; font-weight: 700; font-size: 10px; text-transform: uppercase; text-align: center; padding: 1px 0; letter-spacing: 1px; backdrop-filter: blur(2px); }
+        #bg-menina { background-color: #ff9ff3; }
+        #bg-unissex { background-color: #feca57; }
+        #bg-menino { background-color: #54a0ff; }
+        .secao-categorias { 
+            max-width: 1000px; 
+            margin: 20px auto 30px auto; 
+            padding: 10px 15px 20px 15px; 
+            display: flex; 
+            justify-content: flex-start; /* Alinha no começo para não cortar a primeira foto */
+            gap: 25px; 
+            overflow-x: auto; 
+            scroll-behavior: smooth; 
+        }
+        /* Mágica para criar uma barra de rolagem elegante e fofa */
+        .secao-categorias::-webkit-scrollbar { 
+            height: 8px; 
+        }
+        .secao-categorias::-webkit-scrollbar-track { 
+            background: #fef5ee; 
+            border-radius: 10px; 
+        }
+        .secao-categorias::-webkit-scrollbar-thumb { 
+            background: #ff6b81; /* Cor rosa combinando com sua logo */
+            border-radius: 10px; 
+        }
+        .secao-categorias::-webkit-scrollbar-thumb:hover { 
+            background: #e85a71; 
+        }
+        .item-categoria { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; opacity: 0.6; }
+        .item-categoria:hover, .item-categoria.ativo { opacity: 1; transform: translateY(-5px); }
+        .circulo-cat { width: 95px; height: 95px; border-radius: 50%; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 40px; border: 2px solid transparent; }
+        .item-categoria.ativo .circulo-cat { border-color: #ff6b81; }
+        .item-categoria span { font-size: 13px; font-weight: 600; color: #555; text-align: center;}
+        .container { padding: 15px; max-width: 1000px; margin: 0 auto; }
+        .titulo-secao { text-align: center; margin-bottom: 25px; }
+        .titulo-secao span { background: #a29bfe; color: white; padding: 6px 20px; border-radius: 20px; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;}
+        .barra-busca { width: 100%; max-width: 500px; margin: 0 auto 30px auto; display: block; padding: 14px 20px; border-radius: 30px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-family: 'Poppins', sans-serif;}
+        .barra-busca:focus { outline: none; border-color: #a29bfe; }
+        .grid-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 25px; }
+        .card-produto { background: white; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; position: relative; transition: 0.3s; border: 1px solid #f0f0f0; }
+        .card-produto:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.08); transform: translateY(-3px); }
+        .galeria-container { width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; margin-bottom: 15px; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; background: #f8f9fa; position: relative; }
+        .galeria-container::-webkit-scrollbar { display: none; }
+        .foto-item { flex: 0 0 100%; height: 100%; object-fit: cover; scroll-snap-align: center; }
+        .sem-foto { flex: 0 0 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #adb5bd; font-size: 12px; font-weight: bold; }
+        .badge-multi-fotos { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 12px; pointer-events: none; z-index: 10;}
+        .card-produto h3 { margin: 0 0 5px 0; font-size: 14px; color: #333; line-height: 1.3; font-weight: 600; }
+        .card-produto .detalhes { font-size: 11px; color: #888; margin-bottom: 10px; min-height: 15px;}
+        .card-produto .preco { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 15px; }
+        .card-produto .btn-add { background: transparent; color: #333; border: 2px solid #ddd; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; width: 100%; box-sizing: border-box; font-family: 'Poppins', sans-serif; font-size: 13px;}
+        .card-produto .btn-add:hover { background: #333; color: white; border-color: #333; }
+        .esgotado { opacity: 0.6; pointer-events: none; }
+        .badge-esgotado { position: absolute; top: 10px; left: 10px; background: #ff4757; color: white; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 5px; z-index: 20; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 20px; padding: 25px; box-sizing: border-box; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.2);}
+        .modal-box h2 { margin-top: 0; color: #333; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; font-size: 18px;}
+        .modal-box h2 span { cursor: pointer; color: #999; font-size: 28px; line-height: 1; transition: 0.2s;}
+        .modal-box h2 span:hover { color: #ff4757; }
+        .lista-cart { flex: 1; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;}
+        .item-cart { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+        .item-cart-info { flex: 1; }
+        .item-cart-nome { font-size: 14px; font-weight: 600; color: #333; margin:0;}
+        .item-cart-preco { font-size: 14px; color: #333; margin:0; font-weight: 700;}
+        .item-cart-acoes { display: flex; align-items: center; gap: 10px; }
+        .btn-qtd { width: 32px; height: 32px; background: #f1f2f6; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; color: #333;}
+        .total-cart { font-size: 18px; font-weight: 700; text-align: right; color: #333; margin-bottom: 15px; padding-top: 10px; border-top: 2px solid #f0f0f0;}
+        .form-cliente input { width: 100%; padding: 14px; margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 8px; box-sizing: border-box; font-size: 14px; font-family: 'Poppins', sans-serif; background: #fdfdfd;}
+        .form-cliente input:focus { outline: none; border-color: #a29bfe; }
+        .btn-enviar-zap { width: 100%; background: #2ed573; color: white; border: none; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s; font-family: 'Poppins', sans-serif;}
+        .btn-enviar-zap:hover { background: #26c263; transform: translateY(-2px);}
+        .badge-variacao { display: inline-block; background: #f1f2f6; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px;}
+        .badge-variacao span { color: #ff6b81; }
+        @media (max-width: 600px) {
+            .nav-links { display: none; }
+            .header { padding: 15px 20px; }
+            .grid-produtos { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+            .secao-categorias { gap: 15px; justify-content: flex-start; }
+            .circulo-cat { width: 80px; height: 80px; font-size: 30px;}
+            .secao-generos { height: 45px; max-width: 340px; margin: 10px auto; }
+            .texto-genero { font-size: 8px; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CABEÇALHO -->
+    <header class="header">
+        <div class="logo" id="area-logo-site">
+            🛍️ Sua Loja
+        </div>
+        <nav class="nav-links">
+            <a onclick="window.scrollTo(0,0)">Início</a>
+            <a href="#vitrine">Produtos</a>
+            <a href="#">Sobre Nós</a>
+            <a href="#">Contato</a>
+        </nav>
+        <div class="header-icons">
+            <div class="carrinho-icon" onclick="abrirCarrinho()" style="padding-top: 5px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+                <div class="badge-sacola" id="qtdSacola">0</div>
+            </div>
+        </div>
+    </header>
+
+    <div id="area-banner" style="display: none; width: 100%; max-width: 1000px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; cursor: pointer;" onclick="document.getElementById('vitrine').scrollIntoView({behavior: 'smooth'})">
+        <img id="imgBannerSite" src="" style="width: 100%; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); display: block; object-fit: cover; max-height: 400px;">
+    </div>
+
+    <div style="max-width: 1000px; margin: 0 auto; padding: 0 15px;">
+        <div class="secao-generos">
+            <div class="item-genero" id="bg-menina" onclick="filtrarPorGenero('Menina', this)">
+                <img id="imgGenMenina" src="">
+                <span class="texto-genero">Meninas</span>
+            </div>
+            <div class="item-genero" id="bg-unissex" onclick="filtrarPorGenero('Unissex', this)">
+                <img id="imgGenUnissex" src="">
+                <span class="texto-genero">Unissex</span>
+            </div>
+            <div class="item-genero" id="bg-menino" onclick="filtrarPorGenero('Menino', this)">
+                <img id="imgGenMenino" src="">
+                <span class="texto-genero">Meninos</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="menuCategorias" class="secao-categorias"></div>
+
+    <div id="vitrine" class="container">
+        <div class="titulo-secao" style="display: none;"><span id="tituloCategoriaAtual">Todos os Produtos</span></div>
+        <input type="text" id="buscaProduto" class="barra-busca" placeholder="🔍 Buscar modelo, cor, tamanho..." onkeyup="filtrarPorTexto()">
+        <div id="gridProdutos" class="grid-produtos">
+            <p style="text-align:center; color:#999; width: 100%; grid-column: 1 / -1;">⏳ Carregando vitrine e taxas...</p>
+        </div>
+    </div>
+
+    <div id="modalVariacoes" class="modal-overlay">
+        <div class="modal-box" style="padding: 15px; max-height: 95vh;">
+            <h2 id="modalVarTitulo" style="margin-bottom: 10px; padding-bottom: 10px; font-size: 15px;">Nome <span onclick="fecharModalVariacoes()">×</span></h2>
+            <div id="modalVarGaleria"></div>
+            <p style="font-size: 11px; font-weight: 600; color: #777; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; margin-bottom: 0; margin-top: 5px;">Escolha a opção:</p>
+            <div id="modalVarLista" class="lista-cart" style="max-height: 45vh; padding-right: 0;"></div>
+            <button class="btn-enviar-zap" style="margin-top: 10px; padding: 12px; font-size: 13px; background: #a29bfe;" onclick="fecharModalVariacoes(); abrirCarrinho();">👜 IR PARA A SACOLA</button>
+        </div>
+    </div>
+
+    <div id="modalViewer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 999; flex-direction: column;">
+        <span style="position: absolute; top: 15px; right: 20px; color: white; font-size: 40px; cursor: pointer; font-weight: bold; z-index: 1000;" onclick="document.getElementById('modalViewer').style.display='none'">×</span>
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 900px;">
+            <button id="btnCatAnt" onclick="mudarFotoCatalogo(-1)" style="position: absolute; left: 15px; background: rgba(255,255,255,0.2); color: white; border: none; font-size: 35px; padding: 15px 20px; cursor: pointer; border-radius: 10px; z-index: 1000; transition: 0.3s;">&#10094;</button>
+            <img id="imgViewer" src="" style="max-width: 85%; max-height: 85vh; object-fit: contain; border-radius: 10px;">
+            <button id="btnCatProx" onclick="mudarFotoCatalogo(1)" style="position: absolute; right: 15px; background: rgba(255,255,255,0.2); color: white; border: none; font-size: 35px; padding: 15px 20px; cursor: pointer; border-radius: 10px; z-index: 1000; transition: 0.3s;">&#10095;</button>
+        </div>
+        <div id="legendaCatZoom" style="color: white; margin-top: 15px; font-size: 15px; text-align: center; background: rgba(0,0,0,0.7); padding: 6px 20px; border-radius: 10px; display: none; font-weight: 600; letter-spacing: 0.5px;"></div>
+        <div id="contadorCatZoom" style="color: white; margin-top: 10px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px;">1 / 1</div>
+    </div>
+
+    <!-- MODAL DO CARRINHO (Sacola) -->
+    <div id="modalCarrinho" class="modal-overlay">
+        <div class="modal-box">
+            <h2>Sua Sacola <span onclick="fecharCarrinho()">×</span></h2>
+            <div id="itensDoCarrinho" class="lista-cart"></div>
+            
+            <div class="total-cart">Total: <span id="valorTotalSacola">R$ 0,00</span></div>
+            
+            <!-- ÁREA DOS BOTÕES NOVOS (Cliente e Pagamento) -->
+            <div class="form-cliente" id="botoes-acoes-carrinho" style="margin-top: 10px; margin-bottom: 10px;">
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <button class="btn-acao" style="flex: 1; padding: 8px; background: #e7f1ff; color: #0d6efd; border: 1px solid #b6d4fe; border-radius: 6px; cursor: pointer; font-family: 'Poppins', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="abrirModalCliente()">
+                        <span style="font-size: 16px;">👤</span>
+                        <b style="font-size: 12px;">Dados do Cliente</b>
+                    </button>
+                    <button class="btn-acao" style="flex: 1; padding: 8px; background: #e8f5e9; color: #198754; border: 1px solid #c8e6c9; border-radius: 6px; cursor: pointer; font-family: 'Poppins', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="abrirModalPagamento()">
+                        <span style="font-size: 16px;">💳</span>
+                        <b style="font-size: 12px;">Pagamento</b>
+                    </button>
+                </div>
+                
+                <!-- Resumo do que ele já preencheu -->
+                <div id="resumoSacola" style="font-size: 12px; color: #555; background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px dashed #ccc; display: none;"></div>
+            </div>
+
+            <button class="btn-enviar-zap" onclick="enviarPedidoWhatsapp()">💬 ENVIAR PEDIDO</button>
+        </div>
+    </div>
+
+    <!-- JANELINHA 1: MODAL DADOS DO CLIENTE -->
+    <div id="modalDadosCliente" class="modal-overlay" style="z-index: 250;">
+        <div class="modal-box" style="padding: 20px; margin: 10px; width: 100%;">
+            <h3 style="margin-top: 0; color: #0d6efd; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                👤 Seus Dados 
+                <span onclick="document.getElementById('modalDadosCliente').style.display='none'" style="float:right; cursor:pointer; color:#999;">×</span>
+            </h3>
+            <div class="form-cliente">
+                <input type="text" id="cliNome" placeholder="Qual o seu nome completo?" style="margin-bottom: 8px;">
+                <input type="tel" id="cliWhats" placeholder="WhatsApp: (00) 00000-0000" style="margin-bottom: 15px;">
+                
+                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">Endereço de Entrega:</h4>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="cliCidade" placeholder="Cidade" style="flex: 2; margin-bottom: 8px;">
+                    <input type="text" id="cliEstado" placeholder="UF" style="flex: 1; margin-bottom: 8px;">
+                </div>
+                <input type="text" id="cliBairro" placeholder="Bairro" style="margin-bottom: 8px;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="cliRua" placeholder="Rua / Avenida" style="flex: 3; margin-bottom: 8px;">
+                    <input type="text" id="cliNumero" placeholder="Número" style="flex: 1; margin-bottom: 8px;">
+                </div>
+                <input type="text" id="cliRef" placeholder="Ponto de Referência" style="margin-bottom: 5px;">
+            </div>
+            <button class="btn-enviar-zap" style="background: #0d6efd; margin-top: 10px;" onclick="salvarDadosCliente()">✅ OK, SALVAR DADOS</button>
+        </div>
+    </div>
+
+    <!-- JANELINHA 2: MODAL FORMA DE PAGAMENTO -->
+    <div id="modalPagamento" class="modal-overlay" style="z-index: 250;">
+        <div class="modal-box" style="padding: 20px; margin: 10px; width: 100%;">
+            <h3 style="margin-top: 0; color: #198754; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                💳 Forma de Pagamento 
+                <span onclick="document.getElementById('modalPagamento').style.display='none'" style="float:right; cursor:pointer; color:#999;">×</span>
+            </h3>
+            
+            <label style="font-size: 13px; font-weight: bold; color: #333;">Como deseja pagar?</label>
+            <select id="formaPagamento" onchange="atualizarTotalComTaxa()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-top: 4px; font-size: 14px; background: white; font-family: 'Poppins', sans-serif;">
+                <option value="Pix">Pix (Chave / QR Code)</option>
+                <option value="Espécie (Dinheiro)">Espécie (Dinheiro)</option>
+                <option value="Cartão de Débito">Cartão de Débito</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+            </select>
+
+            <div id="areaBandeira" style="display: none; margin-top: 12px;">
+                <label style="font-size: 13px; font-weight: bold; color: #333;">Bandeira do Cartão:</label>
+                <select id="bandeiraCartao" onchange="atualizarTotalComTaxa()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-top: 4px; font-size: 14px; background: white; font-family: 'Poppins', sans-serif;">
+                    <option value="visaMaster">Visa / Mastercard</option>
+                    <option value="elo">Elo / Outras</option>
+                </select>
+            </div>
+
+            <div id="areaParcelas" style="display: none; margin-top: 12px;">
+                <label style="font-size: 13px; font-weight: bold; color: #333;">Número de Parcelas:</label>
+                <select id="qtdParcelas" onchange="atualizarTotalComTaxa()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-top: 4px; font-size: 14px; background: white; font-family: 'Poppins', sans-serif;">
+                    <option value="1">1x no Cartão</option><option value="2">2x no Cartão</option><option value="3">3x no Cartão</option><option value="4">4x no Cartão</option><option value="5">5x no Cartão</option><option value="6">6x no Cartão</option><option value="7">7x no Cartão</option><option value="8">8x no Cartão</option><option value="9">9x no Cartão</option><option value="10">10x no Cartão</option>
+                </select>
+            </div>
+            
+            <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; border: 1px dashed #198754;">
+                <span style="font-size: 12px; color: #198754; font-weight: bold; text-transform: uppercase;">Total com Pagamento Selecionado:</span><br>
+                <span id="valorTotalPagamentoModal" style="font-size: 26px; font-weight: bold; color: #198754;">R$ 0,00</span>
+            </div>
+
+            <button class="btn-enviar-zap" style="background: #198754; margin-top: 15px;" onclick="salvarPagamento()">✅ CONFIRMAR</button>
+        </div>
+    </div>
+
+    <script>
+        // CHAVES DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyB-Kreopb61NBKGzTBtoLNHMXkdgFQGFJw",
+            authDomain: "elevapdv.firebaseapp.com",
+            projectId: "elevapdv",
+            storageBucket: "elevapdv.firebasestorage.app",
+            messagingSenderId: "40744075384",
+            appId: "1:40744075384:web:10a256e9d0a99c7dcb6d8d",
+            measurementId: "G-M3VMTF7SV4"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let estoqueLoja = [];
+        window.produtosAgrupadosGlobal = {};
+        window.listaCategoriasOficiais = [];
+        let sacola = [];
+        let generoAtual = "Todos";
+        let categoriaAtual = "Todas";
+
+        // ==========================================
+        // TAXAS DO FIREBASE E COM ARREDONDAMENTO PARA CIMA
+        // ==========================================
+        const TAXAS_MAQUININHA = {
+            visaMaster: { debito: 1.37, credito: [0, 3.15, 5.39, 6.12, 6.85, 7.57, 8.28, 8.99, 9.69, 10.38, 11.06, 11.74, 12.04] },
+            elo: { debito: 2.58, credito: [0, 4.91, 6.47, 7.20, 7.92, 8.63, 9.33, 10.03, 10.72, 11.41, 12.08, 12.75, 13.41] }
+        };
+
+        window.onload = function() { 
+            db.collection("configuracoes").doc("taxasMaquininha").get().then((doc) => {
+                if(doc.exists) {
+                    let t = doc.data();
+                    TAXAS_MAQUININHA.visaMaster.debito = parseFloat(t["visa_Débito"]) || 0;
+                    TAXAS_MAQUININHA.elo.debito = parseFloat(t["elo_Débito"]) || 0;
+                    for(let i=1; i<=12; i++) {
+                        TAXAS_MAQUININHA.visaMaster.credito[i] = parseFloat(t[`visa_${i}`]) || 0;
+                        TAXAS_MAQUININHA.elo.credito[i] = parseFloat(t[`elo_${i}`]) || 0;
+                    }
+                }
+                carregarLojaCompleta(); 
+            }).catch(() => {
+                carregarLojaCompleta(); 
+            });
+        };
+
+        function desenharPrecos(valorBase, isPequeno = false) {
+            let precoVista = valorBase; 
+            let taxa10x = TAXAS_MAQUININHA.visaMaster.credito[10] || 0;
+            
+            // Trocado de Math.ceil para Math.round (Arredondamento Padrão)
+            let precoCartao = Math.round((valorBase / (1 - (taxa10x / 100))) * 100) / 100; 
+
+            if (isPequeno) {
+                return `<div style="line-height: 1.1; margin-top: 2px;"><b style="color:#198754; font-size: 13px;">R$ ${precoVista.toFixed(2).replace('.',',')}</b><span style="font-size:9px; color:#666;"> à vista</span><br><small style="color:#777; font-size:10px;">Cartão: R$ ${precoCartao.toFixed(2).replace('.',',')}</small></div>`;
+            }
+            return `<div style="line-height: 1.2; margin-top: 5px;"><b style="color:#198754; font-size: 16px;">R$ ${precoVista.toFixed(2).replace('.',',')} <span style="font-size:11px; font-weight:normal; color:#666;">à vista</span></b><br><small style="color:#777; font-size:12px;">Cartão: R$ ${precoCartao.toFixed(2).replace('.',',')}</small></div>`;
+        }
+
+        function carregarLojaCompleta() {
+            let grid = document.getElementById('gridProdutos');
+            db.collection("configuracoes").doc("site").get().then((doc) => {
+                if (doc.exists) {
+                    let config = doc.data();
+                    if (config.bannerUrl) { document.getElementById('imgBannerSite').src = config.bannerUrl; document.getElementById('area-banner').style.display = 'block'; }
+                    if (config.logoUrl) { document.getElementById('area-logo-site').innerHTML = `<img src="${config.logoUrl}" style="max-height: 40px; object-fit: contain; transform: scale(1.8); transform-origin: left center;">`; }
+                    if (config.bannerMenina) document.getElementById('imgGenMenina').src = config.bannerMenina;
+                    if (config.bannerUnissex) document.getElementById('imgGenUnissex').src = config.bannerUnissex;
+                    if (config.bannerMenino) document.getElementById('imgGenMenino').src = config.bannerMenino;
+                }
+            });
+
+            db.collection("categorias").get().then((snapCat) => {
+                window.listaCategoriasOficiais = [];
+                snapCat.forEach(doc => { window.listaCategoriasOficiais.push(doc.data()); });
+                
+                db.collection("produtos").orderBy("nome").get().then((snapshot) => {
+                    estoqueLoja = [];
+                    if (snapshot.empty) { grid.innerHTML = "<p style='text-align:center; color:#999; grid-column: 1 / -1;'>Nenhum produto disponível.</p>"; return; }
+                    snapshot.forEach((doc) => {
+                        let p = doc.data(); p.idFirebase = doc.id; p.categoriaFinal = p.categoria && p.categoria.trim() !== "" ? p.categoria.trim() : "Geral"; 
+                        estoqueLoja.push(p);
+                    });
+                    renderizarMenuCategorias(); renderizarProdutos(); 
+                }).catch((error) => { grid.innerHTML = "<p style='text-align:center; color:red; grid-column: 1 / -1;'>Erro ao carregar produtos.</p>"; });
+            }).catch((error) => { console.error("Erro ao puxar categorias:", error); });
+        }
+
+        function filtrarPorGenero(generoSelecionado, elementoClicado) {
+            if (generoAtual === generoSelecionado) { generoAtual = "Todos"; document.querySelectorAll('.item-genero').forEach(b => b.classList.remove('ativo')); } 
+            else { generoAtual = generoSelecionado; document.querySelectorAll('.item-genero').forEach(b => b.classList.remove('ativo')); elementoClicado.classList.add('ativo'); }
+            categoriaAtual = "Todas"; document.getElementById('tituloCategoriaAtual').innerText = generoAtual === "Todos" ? "Todos os Produtos" : "Moda " + generoAtual;
+            renderizarMenuCategorias(); renderizarProdutos();
+        }
+
+        function renderizarMenuCategorias() {
+            let menu = document.getElementById('menuCategorias');
+            let imgLogoHtml = "🌈"; let imgCabecalho = document.querySelector('#area-logo-site img');
+            if(imgCabecalho && imgCabecalho.src) { imgLogoHtml = `<img src="${imgCabecalho.src}" style="width: 110%; height: 110%; object-fit: contain;">`; }
+            menu.innerHTML = `<div class="item-categoria ativo" onclick="mudarCategoria('Todas', this, 'Todos os Produtos')"><div class="circulo-cat" style="font-size: 40px; padding:0; background-color: #fef5ee;">${imgLogoHtml}</div><span>Tudo</span></div>`;
+            window.listaCategoriasOficiais.sort((a,b) => (a.nome || "").localeCompare(b.nome || ""));
+            window.listaCategoriasOficiais.forEach(cat => {
+                let generoTxt = cat.genero ? cat.genero : 'Unissex';
+                if (generoAtual !== "Todos" && generoTxt !== generoAtual) return;
+                let nomeFiltroExato = `${cat.nome} (${generoTxt})`; 
+                let imgHtml = cat.foto ? `<img src="${cat.foto}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `✨`; 
+                let corGenero = generoTxt === 'Menina' ? '#ff6b81' : (generoTxt === 'Menino' ? '#0d6efd' : '#198754');
+                let tagGenero = generoTxt !== 'Unissex' ? `<br><small style="color:${corGenero}; font-size:9px;">${generoTxt}</small>` : '';
+                menu.innerHTML += `<div class="item-categoria" onclick="mudarCategoria('${nomeFiltroExato}', this, '${cat.nome}')"><div class="circulo-cat" style="padding:0; overflow:hidden;">${imgHtml}</div><span style="line-height:1.2;">${cat.nome}${tagGenero}</span></div>`;
+            });
+        }
+
+        function mudarCategoria(filtroCategoria, botaoClicado, nomeTitulo) {
+            categoriaAtual = filtroCategoria; document.getElementById('tituloCategoriaAtual').innerText = nomeTitulo;
+            let botoes = document.querySelectorAll('.item-categoria'); botoes.forEach(b => b.classList.remove('ativo')); botaoClicado.classList.add('ativo');
+            document.getElementById('buscaProduto').value = ""; renderizarProdutos(); document.getElementById('vitrine').scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+
+        function filtrarPorTexto() { renderizarProdutos(); }
+
+        function renderizarProdutos() {
+            let grid = document.getElementById('gridProdutos'); grid.innerHTML = "";
+            let termo = document.getElementById('buscaProduto').value.toLowerCase();
+            let produtosFiltrados = estoqueLoja.filter(p => {
+                let passaCategoria = (categoriaAtual === "Todas") || (p.categoriaFinal === categoriaAtual);
+                let passaGenero = true; if (generoAtual !== "Todos") passaGenero = p.categoriaFinal.includes(`(${generoAtual})`);
+                let palavrasChaves = (p.nome + " " + (p.detalhesExtras || '') + " " + (p.cor || '') + " " + (p.tamanho || '')).toLowerCase();
+                let passaTexto = palavrasChaves.includes(termo); return passaCategoria && passaTexto && passaGenero;
+            });
+            if (produtosFiltrados.length === 0) { grid.innerHTML = "<p style='text-align:center; color:#999; grid-column: 1 / -1;'>Nenhum item encontrado.</p>"; return; }
+
+            let agrupamento = {};
+            produtosFiltrados.forEach(p => {
+                let chave = (p.nome + "_" + p.categoriaFinal).toUpperCase().trim();
+                if (!agrupamento[chave]) { agrupamento[chave] = { nome: p.nome, categoriaFinal: p.categoriaFinal, fotos: p.fotos && p.fotos.length > 0 ? p.fotos : [], variacoes: [], precoMin: parseFloat(p.precoVenda || 0), precoMax: parseFloat(p.precoVenda || 0), estoqueTotal: 0 }; }
+                let precoV = parseFloat(p.precoVenda || 0); let qtdP = parseInt(p.quantidade || 0);
+                agrupamento[chave].variacoes.push(p); agrupamento[chave].estoqueTotal += qtdP;
+                if (precoV < agrupamento[chave].precoMin) agrupamento[chave].precoMin = precoV;
+                if (precoV > agrupamento[chave].precoMax) agrupamento[chave].precoMax = precoV;
+                if (agrupamento[chave].fotos.length === 0 && p.fotos && p.fotos.length > 0) { agrupamento[chave].fotos = p.fotos; }
+            });
+            window.produtosAgrupadosGlobal = agrupamento;
+
+            Object.keys(agrupamento).forEach(chave => {
+                let grupo = agrupamento[chave]; let esgotado = grupo.estoqueTotal <= 0;
+                let card = document.createElement('div'); card.className = `card-produto ${esgotado ? 'esgotado' : ''}`;
+                let badge = esgotado ? `<div class="badge-esgotado">ESGOTADO</div>` : '';
+                let txtPreco = "";
+                if (grupo.precoMin === grupo.precoMax) { txtPreco = desenharPrecos(grupo.precoMin); } 
+                else { txtPreco = `<span style="font-size:11px; color:#888; font-weight:normal;">A partir de</span>` + desenharPrecos(grupo.precoMin); }
+
+                let htmlGaleria = '';
+                if (grupo.fotos && grupo.fotos.length > 0) {
+                    grupo.fotos.forEach(urlDaNuvem => { htmlGaleria += `<img src="${urlDaNuvem}" class="foto-item" loading="lazy">`; });
+                    let avisoMaisFotos = grupo.fotos.length > 1 ? `<div class="badge-multi-fotos">1/${grupo.fotos.length} 📸</div>` : '';
+                    htmlGaleria = `<div class="galeria-container">${avisoMaisFotos}${htmlGaleria}</div>`;
+                } else { htmlGaleria = `<div class="galeria-container"><div class="sem-foto"><span style="font-size: 24px;">📷</span>Sem foto</div></div>`; }
+
+                card.innerHTML = `${badge}${htmlGaleria}<div><h3>${grupo.nome || 'Produto'}</h3><div class="detalhes">${grupo.variacoes.length} opção(ões)</div></div><div style="margin-top: 15px;"><div class="preco">${txtPreco}</div><button class="btn-add" onclick="abrirModalVariacoes('${chave}')">Ver Detalhes</button></div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function abrirModalVariacoes(chave) {
+            let grupo = window.produtosAgrupadosGlobal[chave]; if(!grupo) return;
+            document.getElementById('modalVarTitulo').innerHTML = `${grupo.nome} <span onclick="fecharModalVariacoes()" style="font-size: 24px; line-height: 0.5; cursor: pointer;">×</span>`;
+
+            let fotosComLegenda = [];
+            let urlsLidas = new Set();
+
+            grupo.variacoes.forEach(v => {
+                if (v.fotos && v.fotos.length > 0) {
+                    let corTag = v.cor && v.cor !== '-' ? `Cor: ${v.cor}` : ''; 
+                    let tamTag = v.tamanho && v.tamanho !== '-' ? `Tam: ${v.tamanho}` : ''; 
+                    let detalhesTag = [corTag, tamTag].filter(x => x).join(' | ');
+                    if(!detalhesTag) detalhesTag = v.detalhesExtras ? `Opção: ${v.detalhesExtras}` : 'Geral';
+
+                    v.fotos.forEach(imgUrl => {
+                        if (!urlsLidas.has(imgUrl)) {
+                            urlsLidas.add(imgUrl);
+                            
+                            // A MÁGICA AQUI: Só mostra a legenda se a foto for a "Específica" daquela variação!
+                            let legendaParaMostrar = "";
+                            if (v.fotoEspecifica && imgUrl === v.fotoEspecifica) {
+                                legendaParaMostrar = detalhesTag;
+                            }
+                            
+                            fotosComLegenda.push({ url: imgUrl, legenda: legendaParaMostrar });
+                        }
+                    });
+                }
+            });
+
+            let htmlGaleria = '';
+            if (fotosComLegenda.length > 0) {
+                let encodedFotos = encodeURIComponent(JSON.stringify(fotosComLegenda));
+                fotosComLegenda.forEach(obj => { 
+                    htmlGaleria += `<img src="${obj.url}" class="foto-item" style="object-fit: contain; background: transparent; cursor: pointer;" onclick="abrirFotoTelaCheia('${encodedFotos}')" title="Ver todas as fotos">`; 
+                });
+                let lupa = `<div style="position:absolute; bottom:8px; left:8px; background:rgba(255,255,255,0.9); border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.2); pointer-events:none; font-size:12px; z-index:10;">🔍</div>`;
+                htmlGaleria = `<div class="galeria-container" style="aspect-ratio: auto; height: 110px; border-radius: 10px; background: #fef5ee; flex-shrink: 0; margin-bottom: 0; position: relative;">${htmlGaleria}${lupa}</div>`;
+            } else { htmlGaleria = `<div class="galeria-container" style="aspect-ratio: auto; height: 110px; background: #fef5ee; flex-shrink: 0; margin-bottom: 0;"><div class="sem-foto"><span style="font-size: 24px;">📷</span>Sem foto</div></div>`; }
+            document.getElementById('modalVarGaleria').innerHTML = htmlGaleria;
+
+            let htmlLista = "";
+            grupo.variacoes.forEach(v => {
+                let precoValorOriginal = parseFloat(v.precoVenda || 0); let qtdEstoque = parseInt(v.quantidade || 0); let esgotado = qtdEstoque <= 0;
+                let controleQtd = `<div style="display:flex; align-items:center; border: 1px solid #e0e0e0; border-radius: 15px; overflow: hidden; margin-right: 8px; background: #f8f9fa;"><button style="background:transparent; border:none; width: 24px; height: 24px; font-size: 16px; cursor:pointer; color: #555; display:flex; align-items:center; justify-content:center; padding-bottom: 2px;" onclick="alterarQtdModal('${v.idFirebase}', -1, ${qtdEstoque})">-</button><span id="qtd_${v.idFirebase}" style="width: 18px; text-align: center; font-size: 11px; font-weight: bold; color: #333;">1</span><button style="background:transparent; border:none; width: 24px; height: 24px; font-size: 14px; cursor:pointer; color: #555; display:flex; align-items:center; justify-content:center;" onclick="alterarQtdModal('${v.idFirebase}', 1, ${qtdEstoque})">+</button></div>`;
+                let btn = esgotado ? `<button style="background:#f1f2f6; color:#999; border:none; font-size:11px; padding: 5px 10px; border-radius:20px; cursor:not-allowed;">Esgotado</button>` : `<div style="display:flex; align-items:center;">${controleQtd}<button style="font-size:11px; padding: 5px 12px; border-radius:20px; background: #fff; color: #333; border: 1px solid #ccc; font-weight: bold; cursor:pointer; transition: 0.3s;" onclick="adicionarASacola('${v.idFirebase}', this, document.getElementById('qtd_${v.idFirebase}').innerText)">+ Add</button></div>`;
+                let corTag = v.cor && v.cor !== '-' ? `Cor: <b>${v.cor}</b>` : ''; let tamTag = v.tamanho && v.tamanho !== '-' ? `Tam: <b>${v.tamanho}</b>` : ''; let extraTag = (corTag === "" && tamTag === "" && v.detalhesExtras) ? `Opção: <b>${v.detalhesExtras}</b>` : '';
+                let htmlPrecoLista = desenharPrecos(precoValorOriginal, true);
+                htmlLista += `<div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px solid #f0f0f0; ${esgotado ? 'opacity:0.5;' : ''}"><div style="line-height: 1.2;"><div style="font-size: 11px; color: #555; margin-bottom: 2px;">${corTag} ${corTag !== '' && tamTag !== '' ? ' | ' : ''} ${tamTag} ${extraTag}</div>${htmlPrecoLista}</div><div>${btn}</div></div>`;
+            });
+            document.getElementById('modalVarLista').innerHTML = htmlLista;
+            document.getElementById('modalVariacoes').style.display = 'flex';
+        }
+
+        function alterarQtdModal(id, delta, maximo) {
+            let elemento = document.getElementById('qtd_' + id); let quantidadeAtual = parseInt(elemento.innerText); let novaQuantidade = quantidadeAtual + delta;
+            if (novaQuantidade < 1) novaQuantidade = 1; else if (novaQuantidade > maximo) { alert("Estoque máximo atingido para essa opção!"); novaQuantidade = maximo; }
+            elemento.innerText = novaQuantidade;
+        }
+
+        window.galeriaCatalogoAtual = []; window.indiceCatalogoAtual = 0;
+        
+        function abrirFotoTelaCheia(encodedFotosStr) { 
+            window.galeriaCatalogoAtual = JSON.parse(decodeURIComponent(encodedFotosStr)); 
+            window.indiceCatalogoAtual = 0; 
+            atualizarVisualizadorCatalogo(); 
+            document.getElementById('modalViewer').style.display = 'flex'; 
+        }
+        
+        function mudarFotoCatalogo(direcao) { 
+            if (window.galeriaCatalogoAtual.length <= 1) return; 
+            window.indiceCatalogoAtual += direcao; 
+            if (window.indiceCatalogoAtual < 0) window.indiceCatalogoAtual = window.galeriaCatalogoAtual.length - 1; 
+            if (window.indiceCatalogoAtual >= window.galeriaCatalogoAtual.length) window.indiceCatalogoAtual = 0; 
+            atualizarVisualizadorCatalogo(); 
+        }
+        
+        function atualizarVisualizadorCatalogo() { 
+            let objAtual = window.galeriaCatalogoAtual[window.indiceCatalogoAtual];
+            document.getElementById('imgViewer').src = objAtual.url; 
+            
+            // Controle da legenda
+            let elLegenda = document.getElementById('legendaCatZoom');
+            if(objAtual.legenda && objAtual.legenda !== 'Geral') {
+                elLegenda.innerHTML = objAtual.legenda;
+                elLegenda.style.display = 'block';
+            } else {
+                elLegenda.style.display = 'none';
+            }
+
+            document.getElementById('contadorCatZoom').innerText = (window.indiceCatalogoAtual + 1) + " / " + window.galeriaCatalogoAtual.length; 
+            let mostrar = window.galeriaCatalogoAtual.length > 1 ? 'block' : 'none'; 
+            document.getElementById('btnCatAnt').style.display = mostrar; 
+            document.getElementById('btnCatProx').style.display = mostrar; 
+            document.getElementById('contadorCatZoom').style.display = mostrar; 
+        }
+        function fecharModalVariacoes() { document.getElementById('modalVariacoes').style.display = 'none'; }
+
+        function adicionarASacola(idProduto, botaoElemento, qtdDigitada) {
+            let qtdPedir = parseInt(qtdDigitada) || 1; let produtoBase = estoqueLoja.find(p => p.idFirebase === idProduto); if (!produtoBase) return;
+            let itemNaSacola = sacola.find(item => item.idFirebase === idProduto);
+            if (itemNaSacola) { if (itemNaSacola.qtdPedida + qtdPedir > produtoBase.quantidade) { alert("Estoque máximo atingido!"); return; } itemNaSacola.qtdPedida += qtdPedir; } 
+            else {
+                let chaveGrupo = (produtoBase.nome + "_" + produtoBase.categoriaFinal).toUpperCase().trim(); let grupo = window.produtosAgrupadosGlobal[chaveGrupo]; let fotoPrincipal = (grupo && grupo.fotos && grupo.fotos.length > 0) ? grupo.fotos[0] : null; let infoDetalhe = ""; if(produtoBase.cor && produtoBase.cor !== '-') infoDetalhe += `Cor: ${produtoBase.cor}`; if(produtoBase.tamanho && produtoBase.tamanho !== '-') infoDetalhe += ` | Tam: ${produtoBase.tamanho}`; if(infoDetalhe === "") infoDetalhe = produtoBase.detalhesExtras || '';
+                sacola.push({ idFirebase: produtoBase.idFirebase, nome: produtoBase.nome, detalhes: infoDetalhe, preco: parseFloat(produtoBase.precoVenda || 0), qtdPedida: qtdPedir, estoqueMax: parseInt(produtoBase.quantidade || 0), fotoThumb: fotoPrincipal });
+            }
+            atualizarBarraSacola(); renderizarItensSacola();
+            if(botaoElemento) { let textoOriginal = botaoElemento.innerText; botaoElemento.innerText = "✅"; botaoElemento.style.background = "#2ed573"; botaoElemento.style.color = "white"; botaoElemento.style.borderColor = "#2ed573"; setTimeout(() => { botaoElemento.innerText = textoOriginal; botaoElemento.style.background = "#fff"; botaoElemento.style.color = "#333"; botaoElemento.style.borderColor = "#ccc"; }, 1500); }
+        }
+
+        function alterarQtdSacola(index, delta) { let item = sacola[index]; let novaQtd = item.qtdPedida + delta; if (novaQtd <= 0) { sacola.splice(index, 1); } else if (novaQtd > item.estoqueMax) { alert("Atenção: Limite do estoque atingido!"); return; } else { item.qtdPedida = novaQtd; } atualizarBarraSacola(); renderizarItensSacola(); if(sacola.length === 0) fecharCarrinho(); }
+        function atualizarBarraSacola() { let barra = document.getElementById('qtdSacola'); let totalItens = sacola.reduce((acc, item) => acc + item.qtdPedida, 0); barra.innerText = totalItens; if(totalItens > 0) { barra.style.transform = "scale(1.2)"; setTimeout(()=> {barra.style.transform = "scale(1)"}, 200); } }
+        function abrirCarrinho() { document.getElementById('modalCarrinho').style.display = 'flex'; renderizarItensSacola(); }
+        function fecharCarrinho() { document.getElementById('modalCarrinho').style.display = 'none'; }
+
+        function renderizarItensSacola() {
+            let lista = document.getElementById('itensDoCarrinho'); lista.innerHTML = "";
+            if (sacola.length === 0) { lista.innerHTML = "<p style='text-align:center; color:#999; padding:30px 0;'>Sua sacola está vazia.</p>"; atualizarTotalComTaxa(); return; }
+            sacola.forEach((item, index) => {
+                let div = document.createElement('div'); div.className = "item-cart";
+                let imgHtml = item.fotoThumb ? `<img src="${item.fotoThumb}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid #eee; margin-right: 15px; flex-shrink: 0;">` : `<div style="width: 50px; height: 50px; background: #f8f9fa; border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">📷</div>`;
+                div.innerHTML = `<div style="display: flex; align-items: center; flex: 1;">${imgHtml}<div class="item-cart-info"><p class="item-cart-nome">${item.nome}</p><p style="font-size:11px; color:#ff6b81; font-weight:600; margin:2px 0;">${item.detalhes}</p><p class="item-cart-preco">R$ ${item.preco.toFixed(2).replace('.', ',')}</p></div></div><div class="item-cart-acoes"><button class="btn-qtd" onclick="alterarQtdSacola(${index}, -1)">-</button><span style="font-weight:bold; font-size:15px; width:15px; text-align:center;">${item.qtdPedida}</span><button class="btn-qtd" onclick="alterarQtdSacola(${index}, 1)">+</button></div>`;
+                lista.appendChild(div);
+            });
+            atualizarTotalComTaxa();
+        }
+
+        // ==========================================
+        // LÓGICA DAS JANELINHAS E WHATSAPP
+        // ==========================================
+        function abrirModalCliente() { document.getElementById('modalDadosCliente').style.display = 'flex'; }
+        function salvarDadosCliente() { document.getElementById('modalDadosCliente').style.display = 'none'; atualizarResumoSacola(); }
+        
+        function abrirModalPagamento() { 
+            atualizarTotalComTaxa(); 
+            document.getElementById('modalPagamento').style.display = 'flex'; 
+        }
+        function salvarPagamento() { document.getElementById('modalPagamento').style.display = 'none'; atualizarResumoSacola(); }
+
+        function atualizarResumoSacola() {
+            let nome = document.getElementById('cliNome') ? document.getElementById('cliNome').value.trim() : '';
+            let pag = document.getElementById('formaPagamento') ? document.getElementById('formaPagamento').value : '';
+            let resumo = document.getElementById('resumoSacola');
+            
+            if(nome !== "" || pag !== "Pix") {
+                resumo.style.display = 'block';
+                resumo.innerHTML = `<b style="color:#0d6efd;">👤 Cliente:</b> ${nome || 'Não informado'} <br> <b style="color:#198754;">💳 Pagamento:</b> ${pag}`;
+            } else {
+                resumo.style.display = 'none';
+            }
+        }
+
+        function atualizarTotalComTaxa() {
+            let totalItens = sacola.reduce((acc, item) => acc + (item.preco * item.qtdPedida), 0);
+            let formaPag = document.getElementById('formaPagamento').value; let areaParcelas = document.getElementById('areaParcelas'); let areaBandeira = document.getElementById('areaBandeira'); let bandeira = document.getElementById('bandeiraCartao').value; 
+            let totalFinal = totalItens;
+
+            if (formaPag === 'Cartão de Crédito') {
+                areaBandeira.style.display = 'block'; areaParcelas.style.display = 'block'; 
+                
+                // MÁGICA: Independente da parcela que o cliente escolher, cobra sempre a taxa de 10x
+                let taxaSelecionada = TAXAS_MAQUININHA[bandeira].credito[10] || 0;
+                totalFinal = Math.round((totalItens / (1 - (taxaSelecionada / 100))) * 100) / 100;
+            } 
+            else if (formaPag === 'Cartão de Débito') {
+                areaBandeira.style.display = 'block'; areaParcelas.style.display = 'none'; 
+                let taxaDebito = TAXAS_MAQUININHA[bandeira].debito || 0;
+                totalFinal = Math.round((totalItens / (1 - (taxaDebito / 100))) * 100) / 100;
+            } 
+            else {
+                areaBandeira.style.display = 'none'; areaParcelas.style.display = 'none';
+                totalFinal = totalItens;
+            }
+            
+            let valorEmTexto = "R$ " + totalFinal.toFixed(2).replace('.', ',');
+            document.getElementById('valorTotalSacola').innerText = valorEmTexto;
+            document.getElementById('valorTotalPagamentoModal').innerText = valorEmTexto;
+        }
+
+        function enviarPedidoWhatsapp() {
+            if (sacola.length === 0) return;
+            
+            let nome = document.getElementById('cliNome').value.trim(); 
+            let whatsCli = document.getElementById('cliWhats').value.trim(); 
+            let estado = document.getElementById('cliEstado') ? document.getElementById('cliEstado').value.trim() : '';
+            let bairro = document.getElementById('cliBairro') ? document.getElementById('cliBairro').value.trim() : '';
+            let rua = document.getElementById('cliRua') ? document.getElementById('cliRua').value.trim() : '';
+            let numero = document.getElementById('cliNumero') ? document.getElementById('cliNumero').value.trim() : '';
+            let ref = document.getElementById('cliRef') ? document.getElementById('cliRef').value.trim() : '';
+            let cidade = document.getElementById('cliCidade') ? document.getElementById('cliCidade').value.trim() : '';
+            
+            let formaPag = document.getElementById('formaPagamento').value; 
+            let bandeira = document.getElementById('bandeiraCartao').value; 
+            
+            if (nome === "") { alert("⚠️ Abra os 'Dados do Cliente' e digite seu nome!"); abrirModalCliente(); return; }
+            if (whatsCli === "") { alert("⚠️ Abra os 'Dados do Cliente' e digite seu WhatsApp!"); abrirModalCliente(); return; }
+
+            let enderecoMontado = "";
+            if(rua !== "" || bairro !== "" || cidade !== "") {
+                enderecoMontado = `${rua}, ${numero} - ${bairro}. ${cidade}/${estado}.`;
+                if(ref !== "") enderecoMontado += ` Ref: ${ref}`;
+            }
+
+            let totalItens = sacola.reduce((acc, item) => acc + (item.preco * item.qtdPedida), 0); 
+            let totalFinal = totalItens; 
+            let infoPagamento = formaPag;
+            let txtBandeira = bandeira === 'visaMaster' ? 'Visa/Mastercard' : 'Elo/Outras';
+
+            let taxaAplicada = 0;
+            let parcelas = 1;
+
+            if (formaPag === 'Cartão de Crédito') {
+                parcelas = parseInt(document.getElementById('qtdParcelas').value); 
+                taxaAplicada = TAXAS_MAQUININHA[bandeira].credito[10] || 0;
+                totalFinal = Math.round((totalItens / (1 - (taxaAplicada / 100))) * 100) / 100; 
+                infoPagamento = `Cartão de Crédito - ${txtBandeira} (em ${parcelas}x)`; 
+            } else if (formaPag === 'Cartão de Débito') {
+                taxaAplicada = TAXAS_MAQUININHA[bandeira].debito || 0;
+                totalFinal = Math.round((totalItens / (1 - (taxaAplicada / 100))) * 100) / 100; 
+                infoPagamento = `Cartão de Débito - ${txtBandeira}`;
+            }
+
+            let SEU_NUMERO_WHATSAPP = "5584998481801"; 
+            
+            // Textos Limpos e à prova de erros
+            let textoZap = `*[ NOVO PEDIDO DO SITE ]*\n\n`;
+            textoZap += `*Cliente:* ${nome}\n`;
+            textoZap += `*WhatsApp:* ${whatsCli}\n`;
+            if (enderecoMontado !== "") textoZap += `*Endereço:* ${enderecoMontado}\n`;
+            textoZap += `*Pagamento:* ${infoPagamento}\n\n`;
+            textoZap += `*[ ITENS DO PEDIDO ]*\n`;
+            
+            sacola.forEach(item => {
+                let precoItemComTaxa = item.preco;
+                if (taxaAplicada > 0) {
+                    precoItemComTaxa = Math.round((item.preco / (1 - (taxaAplicada / 100))) * 100) / 100;
+                }
+                textoZap += `- ${item.qtdPedida}x ${item.nome} (R$ ${precoItemComTaxa.toFixed(2).replace('.', ',')})\n`;
+                if(item.detalhes !== "") textoZap += `  _${item.detalhes}_\n`;
+            });
+            
+            textoZap += `\n*[ TOTAL: R$ ${totalFinal.toFixed(2).replace('.', ',')} ]*`;
+            
+            if (formaPag === 'Cartão de Crédito' && parcelas > 1) {
+                let valorParcela = totalFinal / parcelas;
+                textoZap += `\n*(Passar ${parcelas}x de R$ ${valorParcela.toFixed(2).replace('.', ',')})*`;
+            }
+            
+            textoZap += `\n\nAguardo instruções para pagamento!`;
+
+            let btnMsg = document.querySelector('.btn-enviar-zap[onclick="enviarPedidoWhatsapp()"]');
+            let textoBtnOri = btnMsg.innerHTML;
+            btnMsg.innerHTML = "⏳ Enviando pro PDV...";
+            btnMsg.disabled = true;
+
+            let pedidoData = {
+                cliente: nome, whatsapp: whatsCli, endereco: enderecoMontado,
+                itens: sacola, totalBruto: totalItens, totalFinal: totalFinal,
+                pagamento: formaPag, bandeira: bandeira,
+                parcelas: parcelas,
+                status: 'pendente', dataCadastro: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection("pedidos_site").add(pedidoData).then(() => {
+                sacola = []; atualizarBarraSacola(); renderizarItensSacola();
+                document.getElementById('modalPagamento').style.display = 'none';
+                btnMsg.innerHTML = textoBtnOri; btnMsg.disabled = false;
+                window.open(`https://wa.me/${SEU_NUMERO_WHATSAPP}?text=${encodeURIComponent(textoZap)}`, '_blank');
+            }).catch(e => {
+                alert("Erro ao conectar no sistema: " + e);
+                btnMsg.innerHTML = textoBtnOri; btnMsg.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
