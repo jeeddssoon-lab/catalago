@@ -266,6 +266,24 @@
             <button class="btn-enviar-zap" style="background: #198754; margin-top: 15px;" onclick="salvarPagamento()">✅ CONFIRMAR</button>
         </div>
     </div>
+    <!-- JANELINHA 3: OPÇÕES DE ENVIO DO PEDIDO -->
+    <div id="modalOpcoesEnvio" class="modal-overlay" style="z-index: 500;">
+        <div class="modal-box" style="padding: 25px; margin: 10px; width: 100%; max-width: 400px; text-align: center;">
+            <div style="font-size: 45px; margin-bottom: 5px;">🎉</div>
+            <h3 style="margin-top: 0; color: #198754; margin-bottom: 5px;">Pedido Registrado!</h3>
+            <p style="font-size: 13px; color: #555; margin-bottom: 20px;">Sua sacola foi salva no sistema. Como deseja enviar o pedido para a loja?</p>
+
+            <button class="btn-enviar-zap" style="background: #25D366; margin-bottom: 10px; font-size: 14px;" onclick="abrirLinkWhatsApp()">
+                💬 ENVIAR PELO WHATSAPP
+            </button>
+
+            <button class="btn-enviar-zap" style="background: #6c757d; font-size: 14px;" id="btnCopiarPedido" onclick="copiarTextoPedido()">
+                📋 COPIAR TEXTO DO PEDIDO
+            </button>
+            
+            <p style="font-size: 12px; color: #999; margin-top: 20px; cursor: pointer; text-decoration: underline;" onclick="document.getElementById('modalOpcoesEnvio').style.display='none'">Fechar Janela</p>
+        </div>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -624,6 +642,9 @@
             document.getElementById('valorTotalPagamentoModal').innerText = valorEmTexto;
         }
 
+        window.textoPedidoGerado = "";
+        window.linkWhatsappGerado = "";
+
         function enviarPedidoWhatsapp() {
             if (sacola.length === 0) return;
             
@@ -696,7 +717,7 @@
 
             let btnMsg = document.querySelector('.btn-enviar-zap[onclick="enviarPedidoWhatsapp()"]');
             let textoBtnOri = btnMsg.innerHTML;
-            btnMsg.innerHTML = "⏳ Enviando pro PDV...";
+            btnMsg.innerHTML = "⏳ Salvando Pedido...";
             btnMsg.disabled = true;
 
             let pedidoData = {
@@ -710,12 +731,42 @@
             db.collection("pedidos_site").add(pedidoData).then(() => {
                 sacola = []; atualizarBarraSacola(); renderizarItensSacola();
                 document.getElementById('modalPagamento').style.display = 'none';
+                document.getElementById('modalCarrinho').style.display = 'none'; // Fecha o carrinho
                 btnMsg.innerHTML = textoBtnOri; btnMsg.disabled = false;
-                window.open(`https://wa.me/${SEU_NUMERO_WHATSAPP}?text=${encodeURIComponent(textoZap)}`, '_blank');
+                
+                // MÁGICA: Em vez de abrir direto, salva os textos na memória e abre a nova janela de opções!
+                window.textoPedidoGerado = textoZap;
+                window.linkWhatsappGerado = `https://wa.me/${SEU_NUMERO_WHATSAPP}?text=${encodeURIComponent(textoZap)}`;
+                
+                document.getElementById('modalOpcoesEnvio').style.display = 'flex';
+
             }).catch(e => {
                 alert("Erro ao conectar no sistema: " + e);
                 btnMsg.innerHTML = textoBtnOri; btnMsg.disabled = false;
             });
+        }
+
+        function abrirLinkWhatsApp() {
+            if(window.linkWhatsappGerado) {
+                window.open(window.linkWhatsappGerado, '_blank');
+            }
+        }
+
+        function copiarTextoPedido() {
+            if(window.textoPedidoGerado) {
+                navigator.clipboard.writeText(window.textoPedidoGerado).then(() => {
+                    let btn = document.getElementById('btnCopiarPedido');
+                    let textoOriginal = btn.innerHTML;
+                    btn.innerHTML = "✅ TEXTO COPIADO!";
+                    btn.style.background = "#198754"; // Fica verde
+                    setTimeout(() => {
+                        btn.innerHTML = textoOriginal;
+                        btn.style.background = "#6c757d"; // Volta ao normal
+                    }, 3000);
+                }).catch(err => {
+                    alert("Seu navegador bloqueou a cópia automática. Tente clicar no botão de Enviar pelo WhatsApp!");
+                });
+            }
         }
     </script>
 </body>
